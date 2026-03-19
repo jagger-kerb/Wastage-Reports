@@ -205,21 +205,25 @@ st.markdown("""
     fill: #FFFFFF !important;
 }
 
-/* ── Expander — teal background with white text ────────────────────────── */
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] {
+/* ── Expander — teal header with white text ─────────────────────────────── */
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary {
     background-color: var(--kerb-teal) !important;
     border-radius: 8px !important;
-    border: none !important;
-}
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary,
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary span,
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary p,
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary svg {
+    padding: 10px 16px !important;
     color: #FFFFFF !important;
+}
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary span,
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary p {
+    color: #FFFFFF !important;
+}
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary svg {
     fill: #FFFFFF !important;
 }
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] details > div {
-    color: #FFFFFF !important;
+/* Hide the default marker that causes overlapping text */
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary::marker,
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary::-webkit-details-marker {
+    display: none !important;
+    content: "" !important;
 }
 
 /* ── Hide sidebar nav page icon/label tooltip ──────────────────────────── */
