@@ -705,6 +705,12 @@ with st.sidebar:
 is_all_outlets = fetch_all_btn
 active_fetch = fetch_btn or fetch_all_btn
 
+# Check if last successful fetch was an "all outlets" fetch
+was_all_outlets = (
+    st.session_state.loaded_label is not None
+    and st.session_state.loaded_label.startswith("ALL|")
+)
+
 if active_fetch:
     display_name = "All Outlets" if is_all_outlets else chosen_name
 elif st.session_state.display_name:
@@ -714,7 +720,13 @@ else:
 
 st.header(f"Wastage Trends — {display_name}")
 
-if is_all_outlets:
+# Build cache key — if not actively fetching, match whichever mode was last used
+if active_fetch:
+    if is_all_outlets:
+        cache_key = f"ALL|{start_date}|{end_date}|{granularity}"
+    else:
+        cache_key = f"{outlet_id}|{start_date}|{end_date}|{granularity}"
+elif was_all_outlets:
     cache_key = f"ALL|{start_date}|{end_date}|{granularity}"
 else:
     cache_key = f"{outlet_id}|{start_date}|{end_date}|{granularity}"
