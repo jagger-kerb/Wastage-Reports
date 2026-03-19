@@ -675,16 +675,6 @@ with st.sidebar:
 
         st.divider()
 
-        st.markdown(
-            "<p style='color:#FAC430 !important; font-size:0.75rem; margin-bottom:4px;'>"
-            "&#9888; Fetching all outlets will make one API call per outlet per time "
-            "bucket. This can take several minutes for large date ranges.</p>",
-            unsafe_allow_html=True,
-        )
-        fetch_all_btn = st.button("Fetch All Outlets", use_container_width=True)
-
-        st.divider()
-
         # ── Date range & options ───────────────────────────────────────────────
         st.subheader("Date Range")
         c1, c2 = st.columns(2)
@@ -695,6 +685,16 @@ with st.sidebar:
         granularity = st.selectbox("Bucket size", ["Weekly", "Monthly"])
 
         fetch_btn = st.button("Fetch Data", type="primary", use_container_width=True)
+
+        st.divider()
+
+        st.markdown(
+            "<p style='color:#FAC430 !important; font-size:0.75rem; margin-bottom:4px;'>"
+            "&#9888; Fetching all outlets will make one API call per outlet per time "
+            "bucket. This can take several minutes for large date ranges.</p>",
+            unsafe_allow_html=True,
+        )
+        fetch_all_btn = st.button("Fetch All Outlets", use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
