@@ -496,46 +496,81 @@ def generate_pdf(
     section_heading("Wastage Cost Over Time")
     embed_chart(fig_cost)
 
-    # ── Top 15 tables ─────────────────────────────────────────────────────────
+    # ── Top 15 tables (side by side) ─────────────────────────────────────────
     pdf.add_page()
     draw_bg()
-    half_w = 130
 
-    # Top 15 by Cost
-    section_heading("Top 15 Items by Wastage Cost")
+    col_gap = 8
+    table_w = (297 - pdf.l_margin - pdf.r_margin - col_gap) / 2  # half page width
+    item_w = table_w - 30
+    val_w = 30
+    row_h = 6.5
+    x_left = pdf.l_margin
+    x_right = pdf.l_margin + table_w + col_gap
+
+    # ── Left table heading: Top 15 by Wastage Cost ────────────────────────
+    y_top = pdf.get_y()
+    pdf.set_xy(x_left, y_top)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*TEAL)
+    pdf.cell(table_w, 8, "TOP 15 ITEMS BY WASTAGE COST")
+    # Pink accent underline
+    pdf.set_fill_color(*PINK)
+    pdf.rect(x_left, y_top + 8, 40, 1, "F")
+
+    # ── Right table heading: Top 15 by Units Wasted ───────────────────────
+    pdf.set_xy(x_right, y_top)
+    pdf.cell(table_w, 8, "TOP 15 ITEMS BY UNITS WASTED")
+    pdf.set_fill_color(*PINK)
+    pdf.rect(x_right, y_top + 8, 40, 1, "F")
+
+    y_header = y_top + 12
+
+    # ── Left table header row ─────────────────────────────────────────────
     pdf.set_fill_color(*TEAL)
     pdf.set_text_color(*WHITE)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(half_w, 7, "  Item", border=0, fill=True)
-    pdf.cell(45, 7, "  Cost", border=0, fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(*DARK)
-    pdf.set_font("Helvetica", "", 10)
-    for idx, (_, row) in enumerate(top_cost_df.iterrows()):
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_xy(x_left, y_header)
+    pdf.cell(item_w, row_h, "  Item", fill=True)
+    pdf.cell(val_w, row_h, "  Cost", fill=True)
+
+    # ── Right table header row ────────────────────────────────────────────
+    pdf.set_xy(x_right, y_header)
+    pdf.cell(item_w, row_h, "  Item", fill=True)
+    pdf.cell(val_w, row_h, "  Units", fill=True)
+
+    # ── Table rows ────────────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "", 8)
+    for idx in range(15):
+        y_row = y_header + row_h * (idx + 1)
+
         if idx % 2 == 0:
             pdf.set_fill_color(*WARM_WHITE)
         else:
             pdf.set_fill_color(*WHITE)
-        pdf.cell(half_w, 7, f"  {str(row['product_name'])[:60]}", border=0, fill=True)
-        pdf.cell(45, 7, f"  \u00a3{row['cost_price']:,.2f}", border=0, fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(8)
+        pdf.set_text_color(*DARK)
 
-    # Top 15 by Units
-    section_heading("Top 15 Items by Units Wasted")
-    pdf.set_fill_color(*TEAL)
-    pdf.set_text_color(*WHITE)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(half_w, 7, "  Item", border=0, fill=True)
-    pdf.cell(45, 7, "  Units", border=0, fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(*DARK)
-    pdf.set_font("Helvetica", "", 10)
-    for idx, (_, row) in enumerate(top_qty_df.iterrows()):
-        if idx % 2 == 0:
-            pdf.set_fill_color(*WARM_WHITE)
+        # Left table row (cost)
+        pdf.set_xy(x_left, y_row)
+        if idx < len(top_cost_df):
+            row_c = top_cost_df.iloc[idx]
+            pdf.cell(item_w, row_h, f"  {str(row_c['product_name'])[:45]}", fill=True)
+            pdf.cell(val_w, row_h, f" \u00a3{row_c['cost_price']:,.2f}", fill=True)
         else:
-            pdf.set_fill_color(*WHITE)
-        pdf.cell(half_w, 7, f"  {str(row['product_name'])[:60]}", border=0, fill=True)
-        pdf.cell(45, 7, f"  {row['quantity']:,.0f}", border=0, fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
+            pdf.cell(item_w, row_h, "", fill=True)
+            pdf.cell(val_w, row_h, "", fill=True)
+
+        # Right table row (units)
+        pdf.set_xy(x_right, y_row)
+        if idx < len(top_qty_df):
+            row_q = top_qty_df.iloc[idx]
+            pdf.cell(item_w, row_h, f"  {str(row_q['product_name'])[:45]}", fill=True)
+            pdf.cell(val_w, row_h, f" {row_q['quantity']:,.0f}", fill=True)
+        else:
+            pdf.cell(item_w, row_h, "", fill=True)
+            pdf.cell(val_w, row_h, "", fill=True)
+
+    pdf.set_y(y_header + row_h * 16 + 4)
 
     # ── Trends chart (if provided) ────────────────────────────────────────────
     if fig_trend is not None:
