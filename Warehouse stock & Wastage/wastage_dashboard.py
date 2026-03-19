@@ -164,6 +164,16 @@ st.markdown("""
     color: #1A1A1A !important;
 }
 
+/* ── Force sidebar markdown text to stay white ─────────────────────────── */
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown span,
+[data-testid="stSidebar"] .stMarkdown div {
+    color: #FFFFFF !important;
+}
+[data-testid="stSidebar"] .stMarkdown p[style*="94F3E4"] {
+    color: #94F3E4 !important;
+}
+
 /* ── Expander ───────────────────────────────────────────────────────────── */
 .stApp [data-testid="stExpander"] {
     border-color: var(--kerb-mint) !important;
@@ -722,11 +732,13 @@ fig_cost.update_layout(
     barmode="stack",
     xaxis_title="Period",
     yaxis_title="Cost (£)",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#1A1A1A")),
     height=400,
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
     font=dict(color="#1A1A1A"),
+    xaxis=dict(tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
+    yaxis=dict(tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
 )
 st.plotly_chart(fig_cost, use_container_width=True)
 
@@ -778,9 +790,9 @@ if not df_products.empty:
             fig_top.update_traces(textposition="outside")
             fig_top.update_layout(
                 height=450, coloraxis_showscale=False,
-                yaxis=dict(autorange="reversed"),
+                yaxis=dict(autorange="reversed", tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(range=[0, top_cost["cost_price"].max() * 1.25]),
+                xaxis=dict(range=[0, top_cost["cost_price"].max() * 1.25], tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
                 font=dict(color="#1A1A1A"),
             )
             st.plotly_chart(fig_top, use_container_width=True)
@@ -800,9 +812,9 @@ if not df_products.empty:
             fig_qty.update_traces(textposition="outside")
             fig_qty.update_layout(
                 height=450, coloraxis_showscale=False,
-                yaxis=dict(autorange="reversed"),
+                yaxis=dict(autorange="reversed", tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                xaxis=dict(range=[0, top_qty["quantity"].max() * 1.25]),
+                xaxis=dict(range=[0, top_qty["quantity"].max() * 1.25], tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
                 font=dict(color="#1A1A1A"),
             )
             st.plotly_chart(fig_qty, use_container_width=True)
@@ -826,6 +838,8 @@ if not df_products.empty:
                 height=400,
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#1A1A1A"),
+                xaxis=dict(tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
+                yaxis=dict(tickfont=dict(color="#1A1A1A"), title_font=dict(color="#1A1A1A")),
             )
             st.plotly_chart(fig_trend, use_container_width=True)
 
