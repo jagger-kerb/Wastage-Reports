@@ -338,6 +338,9 @@ if show_products:
         y=df_summary["product_cost_price"],
         name="Product Cost",
         marker_color="#ef4444",
+        text=df_summary["product_cost_price"].apply(lambda v: f"£{v:,.2f}"),
+        textposition="inside",
+        textfont=dict(color="white", size=10),
     ))
 
 if show_ingredients:
@@ -346,6 +349,9 @@ if show_ingredients:
         y=df_summary["ingredient_cost_price"],
         name="Ingredient Cost",
         marker_color="#f97316",
+        text=df_summary["ingredient_cost_price"].apply(lambda v: f"£{v:,.2f}"),
+        textposition="inside",
+        textfont=dict(color="white", size=10),
     ))
 
 # Total line: sum of whichever series are active
@@ -360,9 +366,12 @@ fig_cost.add_trace(go.Scatter(
     x=df_summary["period"],
     y=total_series,
     name="Total",
-    mode="lines+markers",
+    mode="lines+markers+text",
     line=dict(color="#1e40af", width=2),
     marker=dict(size=6),
+    text=total_series.apply(lambda v: f"£{v:,.2f}"),
+    textposition="top center",
+    textfont=dict(size=10),
 ))
 fig_cost.update_layout(
     barmode="stack",
@@ -372,6 +381,7 @@ fig_cost.update_layout(
     height=400,
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
+    uniformtext_minsize=8, uniformtext_mode="show",
 )
 st.plotly_chart(fig_cost, use_container_width=True)
 
@@ -418,11 +428,14 @@ if not df_products.empty:
                 top_cost, x="cost_price", y="product_name", orientation="h",
                 labels={"cost_price": "Total Cost (£)", "product_name": ""},
                 color="cost_price", color_continuous_scale="Reds",
+                text=top_cost["cost_price"].apply(lambda v: f"£{v:,.2f}"),
             )
+            fig_top.update_traces(textposition="outside")
             fig_top.update_layout(
                 height=450, coloraxis_showscale=False,
                 yaxis=dict(autorange="reversed"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(range=[0, top_cost["cost_price"].max() * 1.25]),
             )
             st.plotly_chart(fig_top, use_container_width=True)
 
@@ -436,11 +449,14 @@ if not df_products.empty:
                 top_qty, x="quantity", y="product_name", orientation="h",
                 labels={"quantity": "Units Wasted", "product_name": ""},
                 color="quantity", color_continuous_scale="Oranges",
+                text=top_qty["quantity"].apply(lambda v: f"{v:,.0f}"),
             )
+            fig_qty.update_traces(textposition="outside")
             fig_qty.update_layout(
                 height=450, coloraxis_showscale=False,
                 yaxis=dict(autorange="reversed"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(range=[0, top_qty["quantity"].max() * 1.25]),
             )
             st.plotly_chart(fig_qty, use_container_width=True)
 
@@ -455,7 +471,9 @@ if not df_products.empty:
                 trend_data, x="period", y="cost_price", color="product_name",
                 markers=True,
                 labels={"cost_price": "Cost (£)", "period": "Period", "product_name": "Item"},
+                text=trend_data["cost_price"].apply(lambda v: f"£{v:,.2f}"),
             )
+            fig_trend.update_traces(textposition="top center", textfont=dict(size=10))
             fig_trend.update_layout(
                 height=400,
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
