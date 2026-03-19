@@ -142,43 +142,26 @@ st.markdown("""
     opacity: 0.4;
 }
 
-/* ── Ensure all main-area text is dark/teal ─────────────────────────────── */
-[data-testid="stAppViewContainer"] p,
-[data-testid="stAppViewContainer"] span,
-[data-testid="stAppViewContainer"] label,
-[data-testid="stAppViewContainer"] div {
-    color: var(--kerb-teal) !important;
-}
-
-/* ── Radio buttons ──────────────────────────────────────────────────────── */
-.stApp .stRadio label,
+/* ── Radio buttons & filter labels (main area) ─────────────────────────── */
+.stApp .stRadio > label,
 .stApp .stRadio label span {
-    color: var(--kerb-teal) !important;
+    color: #1A1A1A !important;
     font-weight: 600 !important;
 }
 
-/* ── Multiselect / selectbox text ───────────────────────────────────────── */
-[data-testid="stAppViewContainer"] .stMultiSelect span,
-[data-testid="stAppViewContainer"] .stSelectbox span {
-    color: var(--kerb-teal) !important;
-}
-
-/* ── Keep metric card text white (override the above) ───────────────────── */
-[data-testid="stMetric"] label,
-[data-testid="stMetric"] [data-testid="stMetricValue"],
-[data-testid="stMetric"] div,
-[data-testid="stMetric"] span {
-    color: #FFFFFF !important;
-}
-[data-testid="stMetric"] label {
-    color: var(--kerb-mint) !important;
-}
-
-/* ── Text area ──────────────────────────────────────────────────────────── */
-.stApp .stTextArea label {
-    color: var(--kerb-teal) !important;
+/* ── Multiselect / selectbox labels ────────────────────────────────────── */
+[data-testid="stAppViewContainer"] .stMultiSelect > label,
+[data-testid="stAppViewContainer"] .stSelectbox > label,
+[data-testid="stAppViewContainer"] .stTextArea > label {
+    color: #1A1A1A !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
+}
+
+/* ── General main-area markdown / body text ────────────────────────────── */
+[data-testid="stAppViewContainer"] .stMarkdown p,
+[data-testid="stAppViewContainer"] .stMarkdown span {
+    color: #1A1A1A !important;
 }
 
 /* ── Expander ───────────────────────────────────────────────────────────── */
@@ -743,6 +726,7 @@ fig_cost.update_layout(
     height=400,
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="#1A1A1A"),
 )
 st.plotly_chart(fig_cost, use_container_width=True)
 
@@ -797,6 +781,7 @@ if not df_products.empty:
                 yaxis=dict(autorange="reversed"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 xaxis=dict(range=[0, top_cost["cost_price"].max() * 1.25]),
+                font=dict(color="#1A1A1A"),
             )
             st.plotly_chart(fig_top, use_container_width=True)
 
@@ -818,6 +803,7 @@ if not df_products.empty:
                 yaxis=dict(autorange="reversed"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 xaxis=dict(range=[0, top_qty["quantity"].max() * 1.25]),
+                font=dict(color="#1A1A1A"),
             )
             st.plotly_chart(fig_qty, use_container_width=True)
 
@@ -839,6 +825,7 @@ if not df_products.empty:
             fig_trend.update_layout(
                 height=400,
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#1A1A1A"),
             )
             st.plotly_chart(fig_trend, use_container_width=True)
 
