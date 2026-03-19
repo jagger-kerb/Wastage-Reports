@@ -338,9 +338,6 @@ if show_products:
         y=df_summary["product_cost_price"],
         name="Product Cost",
         marker_color="#ef4444",
-        text=df_summary["product_cost_price"].apply(lambda v: f"£{v:,.2f}"),
-        textposition="inside",
-        textfont=dict(color="white", size=10),
     ))
 
 if show_ingredients:
@@ -349,9 +346,6 @@ if show_ingredients:
         y=df_summary["ingredient_cost_price"],
         name="Ingredient Cost",
         marker_color="#f97316",
-        text=df_summary["ingredient_cost_price"].apply(lambda v: f"£{v:,.2f}"),
-        textposition="inside",
-        textfont=dict(color="white", size=10),
     ))
 
 # Total line: sum of whichever series are active
@@ -381,7 +375,6 @@ fig_cost.update_layout(
     height=400,
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    uniformtext_minsize=8, uniformtext_mode="show",
 )
 st.plotly_chart(fig_cost, use_container_width=True)
 
