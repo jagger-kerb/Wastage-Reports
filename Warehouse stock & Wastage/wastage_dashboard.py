@@ -305,16 +305,19 @@ def make_daterange(start: date, end: date) -> str:
     return f"{s.strftime(DATE_FMT)} - {e.strftime(DATE_FMT)}"
 
 
-def fetch_wastage(token: str, outlet_id: str, start: date, end: date) -> dict | None:
+def fetch_wastage(token: str, outlet_id, start: date, end: date) -> dict | None:
+    """Fetch wastage data. outlet_id can be a single ID string or a list of IDs."""
+    id_list = outlet_id if isinstance(outlet_id, list) else [outlet_id]
+    header_id = id_list[0]  # API header takes a single ID
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type":  "application/json",
-        "Outlet-Id":     outlet_id,
+        "Outlet-Id":     header_id,
     }
     payload = {
         "daterange":              make_daterange(start, end),
         "consider_ingredient_cost": 1,
-        "outlet_id":              [outlet_id],
+        "outlet_id":              id_list,
     }
     try:
         r = requests.post(WASTAGE_URL, headers=headers, json=payload, timeout=30)
@@ -739,33 +742,29 @@ if active_fetch:
 
     buckets = bucket_dates(start_date, end_date, granularity)
 
-    # Build list of outlets to fetch
+    # In all-outlets mode, pass all outlet IDs in a single API call per bucket
     if is_all_outlets:
-        fetch_outlets_list = [(o["id"], o["outlet_name"]) for o in outlets]
+        all_outlet_ids = [o["id"] for o in outlets]
+        fetch_id = all_outlet_ids
+        st.write(
+            f"Fetching **{len(buckets)}** {granularity.lower()} bucket(s) "
+            f"across **{len(all_outlet_ids)}** outlets…"
+        )
     else:
-        fetch_outlets_list = [(outlet_id, chosen_name)]
-
-    total_steps = len(buckets) * len(fetch_outlets_list)
-    st.write(
-        f"Fetching **{len(buckets)}** {granularity.lower()} bucket(s) "
-        f"across **{len(fetch_outlets_list)}** outlet(s) "
-        f"(**{total_steps}** API calls)…"
-    )
+        fetch_id = outlet_id
+        st.write(f"Fetching **{len(buckets)}** {granularity.lower()} buckets for **{chosen_name}**…")
 
     progress      = st.progress(0)
     all_summaries = []
     all_products  = []
-    step = 0
 
-    for oid, oname in fetch_outlets_list:
-        for b_start, b_end in buckets:
-            label = b_start.strftime("%d %b %Y")
-            data  = fetch_wastage(st.session_state.token, oid, b_start, b_end)
-            if data:
-                all_summaries.append(summary_from_response(data, label))
-                all_products.extend(products_from_response(data, label))
-            step += 1
-            progress.progress(step / total_steps)
+    for i, (b_start, b_end) in enumerate(buckets):
+        label = b_start.strftime("%d %b %Y")
+        data  = fetch_wastage(st.session_state.token, fetch_id, b_start, b_end)
+        if data:
+            all_summaries.append(summary_from_response(data, label))
+            all_products.extend(products_from_response(data, label))
+        progress.progress((i + 1) / len(buckets))
 
     progress.empty()
 
@@ -776,18 +775,6 @@ if active_fetch:
     period_order = [b[0].strftime("%d %b %Y") for b in buckets]
     df_summary   = pd.DataFrame(all_summaries)
     df_products  = pd.DataFrame(all_products)
-
-    # When fetching all outlets, aggregate duplicate periods
-    if is_all_outlets:
-        df_summary = df_summary.groupby("period", observed=False).sum(numeric_only=True).reset_index()
-        df_products_agg = df_products.groupby(
-            ["period", "cost_type", "product_name", "product_sku"], observed=False
-        ).agg({
-            "quantity": "sum", "cost_price": "sum",
-            "purchase_price": "sum", "retail_value": "sum",
-        }).reset_index()
-        df_products_agg["outlet"] = "All Outlets"
-        df_products = df_products_agg
 
     for df in (df_summary, df_products):
         df["period"] = pd.Categorical(df["period"], categories=period_order, ordered=True)
