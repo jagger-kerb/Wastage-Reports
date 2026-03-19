@@ -142,9 +142,36 @@ st.markdown("""
     opacity: 0.4;
 }
 
-/* ── Radio buttons ──────────────────────────────────────────────────────── */
-.stApp .stRadio label {
+/* ── Ensure all main-area text is dark/teal ─────────────────────────────── */
+[data-testid="stAppViewContainer"] p,
+[data-testid="stAppViewContainer"] span,
+[data-testid="stAppViewContainer"] label,
+[data-testid="stAppViewContainer"] div {
     color: var(--kerb-teal) !important;
+}
+
+/* ── Radio buttons ──────────────────────────────────────────────────────── */
+.stApp .stRadio label,
+.stApp .stRadio label span {
+    color: var(--kerb-teal) !important;
+    font-weight: 600 !important;
+}
+
+/* ── Multiselect / selectbox text ───────────────────────────────────────── */
+[data-testid="stAppViewContainer"] .stMultiSelect span,
+[data-testid="stAppViewContainer"] .stSelectbox span {
+    color: var(--kerb-teal) !important;
+}
+
+/* ── Keep metric card text white (override the above) ───────────────────── */
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] [data-testid="stMetricValue"],
+[data-testid="stMetric"] div,
+[data-testid="stMetric"] span {
+    color: #FFFFFF !important;
+}
+[data-testid="stMetric"] label {
+    color: var(--kerb-mint) !important;
 }
 
 /* ── Text area ──────────────────────────────────────────────────────────── */
