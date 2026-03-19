@@ -143,9 +143,20 @@ st.markdown("""
 }
 
 /* ── Radio buttons & filter labels (main area) ─────────────────────────── */
-.stApp .stRadio > label,
-.stApp .stRadio label span {
-    color: #1A1A1A !important;
+.stApp .stRadio > label {
+    color: var(--kerb-teal) !important;
+    font-weight: 700 !important;
+}
+[data-testid="stAppViewContainer"] .stRadio [role="radiogroup"] {
+    background-color: var(--kerb-teal) !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+}
+[data-testid="stAppViewContainer"] .stRadio [role="radiogroup"] label,
+[data-testid="stAppViewContainer"] .stRadio [role="radiogroup"] label span,
+[data-testid="stAppViewContainer"] .stRadio [role="radiogroup"] label p,
+[data-testid="stAppViewContainer"] .stRadio [role="radiogroup"] label div {
+    color: #FFFFFF !important;
     font-weight: 600 !important;
 }
 
@@ -174,29 +185,41 @@ st.markdown("""
     color: #94F3E4 !important;
 }
 
-/* ── Multiselect placeholder & input text ───────────────────────────────── */
+/* ── Multiselect — teal background with white text ─────────────────────── */
+[data-testid="stAppViewContainer"] .stMultiSelect [data-baseweb="select"] {
+    background-color: var(--kerb-teal) !important;
+    border-radius: 8px !important;
+    border: none !important;
+}
 [data-testid="stAppViewContainer"] .stMultiSelect div,
 [data-testid="stAppViewContainer"] .stMultiSelect span,
 [data-testid="stAppViewContainer"] .stMultiSelect input,
 [data-testid="stAppViewContainer"] .stMultiSelect [data-baseweb] * {
-    color: #1A1A1A !important;
+    color: #FFFFFF !important;
 }
 [data-testid="stAppViewContainer"] .stMultiSelect input::placeholder {
-    color: #666666 !important;
+    color: var(--kerb-mint) !important;
     opacity: 1 !important;
 }
+[data-testid="stAppViewContainer"] .stMultiSelect svg {
+    fill: #FFFFFF !important;
+}
 
-/* ── Expander toggle text ──────────────────────────────────────────────── */
+/* ── Expander — teal background with white text ────────────────────────── */
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] {
+    background-color: var(--kerb-teal) !important;
+    border-radius: 8px !important;
+    border: none !important;
+}
 [data-testid="stAppViewContainer"] [data-testid="stExpander"] summary,
 [data-testid="stAppViewContainer"] [data-testid="stExpander"] summary span,
 [data-testid="stAppViewContainer"] [data-testid="stExpander"] summary p,
-[data-testid="stAppViewContainer"] [data-testid="stExpander"] details > div {
-    color: #1A1A1A !important;
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] summary svg {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
 }
-
-/* ── Expander ───────────────────────────────────────────────────────────── */
-.stApp [data-testid="stExpander"] {
-    border-color: var(--kerb-mint) !important;
+[data-testid="stAppViewContainer"] [data-testid="stExpander"] details > div {
+    color: #FFFFFF !important;
 }
 
 /* ── Hide sidebar nav page icon/label tooltip ──────────────────────────── */
