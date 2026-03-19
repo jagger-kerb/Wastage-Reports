@@ -968,6 +968,6 @@ if not df_products.empty:
             st.download_button(
                 "Download PDF",
                 data=pdf_bytes,
-                file_name=f"wastage_report_{chosen_name.replace(' ', '_')}_{start_date}_{end_date}.pdf",
+                file_name=f"{chosen_name} - {start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')} - Wastage Report.pdf",
                 mime="application/pdf",
             )
