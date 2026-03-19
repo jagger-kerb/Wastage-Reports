@@ -2,48 +2,64 @@
 
 ## Project Structure
 
-```
-Wastage-Reports/
-├── .devcontainer/
-│   └── devcontainer.json          # Dev container configuration
-├── Warehouse stock & Wastage/
-│   ├── wastage_dashboard.py       # The entire application (single file)
-│   └── run_dashboard.bat          # Windows batch script to launch locally
-├── requirements.txt               # Python dependencies
-├── SPEC.md                        # Feature specification
-└── CODEBASE.md                    # This file
+```mermaid
+graph LR
+    subgraph Repo["Wastage-Reports/"]
+        DC[".devcontainer/\ndevcontainer.json"]
+        subgraph App["Warehouse stock & Wastage/"]
+            WD["wastage_dashboard.py\n~1025 lines — entire app"]
+            RB["run_dashboard.bat"]
+        end
+        REQ["requirements.txt"]
+        SPEC["SPEC.md"]
+        CODE["CODEBASE.md"]
+    end
+
+    style WD fill:#006653,color:#fff
+    style App fill:#94F3E4,color:#000
 ```
 
 ## Single-File Architecture
 
 The entire app lives in `wastage_dashboard.py` (~1025 lines). It follows Streamlit's top-to-bottom execution model — the file runs from top to bottom on every interaction.
 
-## File Sections (in order)
+## File Sections
 
-### 1. Imports & Page Config (lines 1–25)
-Standard library + third-party imports. `st.set_page_config()` must be the first Streamlit call.
+```mermaid
+graph TD
+    subgraph wastage_dashboard.py
+        S1["1. Imports & Page Config\nlines 1–25"]
+        S2["2. KERB Brand CSS\nlines 27–234"]
+        S3["3. API Constants\nlines 236–240"]
+        S4["4. Session State Defaults\nlines 242–255"]
+        S5["5. Helper Functions\nlines 258–388"]
+        S6["6. PDF Generation\nlines 391–601"]
+        S7["7. Sidebar UI\nlines 604–700"]
+        S8["8. Data Fetching\nlines 703–791"]
+        S9["9. Dashboard Rendering\nlines 793–1025"]
+    end
 
-### 2. KERB Brand CSS (lines 27–234)
-A large `st.markdown()` block injecting custom CSS via `<style>` tags. Covers:
-- CSS variables for brand colours
-- Sidebar, typography, metric cards, buttons, dividers
-- Radio group, multiselect, expander styling
-- Sidebar nav hiding
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
 
-**Key pattern**: Streamlit components are targeted via `data-testid` attributes (e.g. `[data-testid="stMetric"]`). Sidebar vs main area is distinguished using `[data-testid="stSidebar"]` vs `[data-testid="stAppViewContainer"]`.
+    style S2 fill:#F190AE,color:#000
+    style S5 fill:#94F3E4,color:#000
+    style S6 fill:#94F3E4,color:#000
+    style S7 fill:#006653,color:#fff
+    style S8 fill:#006653,color:#fff
+    style S9 fill:#FAC430,color:#000
+```
 
-### 3. API Constants (lines 236–240)
-Three endpoint URLs and a date format string.
+### Section Details
 
-### 4. Session State Defaults (lines 242–255)
-Initialises keys in `st.session_state` on first run. Key state:
-- `token` / `user_name` — auth
-- `outlets` — cached outlet list
-- `df_summary` / `df_products` — fetched data (pandas DataFrames)
-- `loaded_label` — cache key string to detect stale data
-- `display_name` — "All Outlets" or outlet name
+**1. Imports & Page Config** — Standard library + third-party imports. `st.set_page_config()` must be the first Streamlit call.
 
-### 5. Helper Functions (lines 258–388)
+**2. KERB Brand CSS** — A large `st.markdown()` block injecting custom CSS via `<style>` tags. Streamlit components are targeted via `data-testid` attributes. Sidebar vs main area distinguished using `[data-testid="stSidebar"]` vs `[data-testid="stAppViewContainer"]`.
+
+**3. API Constants** — Three endpoint URLs and a date format string.
+
+**4. Session State Defaults** — Initialises keys in `st.session_state` on first run.
+
+**5. Helper Functions:**
 
 | Function | Purpose |
 |----------|---------|
@@ -55,61 +71,139 @@ Initialises keys in `st.session_state` on first run. Key state:
 | `products_from_response()` | Extract product + ingredient rows from API response |
 | `summary_from_response()` | Extract period-level cost totals from API response |
 
-### 6. PDF Generation (lines 391–601)
-`generate_pdf()` — builds a branded landscape A4 PDF using fpdf2. Receives all data and chart figures as arguments. Key internals:
-- `draw_bg()` — fills page with warm white
-- `embed_chart()` — converts Plotly figure to PNG via `fig.to_image()` (kaleido), writes to temp file, embeds in PDF
-- `section_heading()` — teal text + pink underline accent
-- KPI cards drawn with absolute positioning (`set_xy`)
-- Two top-15 tables rendered side-by-side using column offsets
+**6. PDF Generation** — `generate_pdf()` builds a branded landscape A4 PDF. Key internals: `draw_bg()`, `embed_chart()`, `section_heading()`, KPI cards with absolute positioning, side-by-side tables.
 
-### 7. Sidebar UI (lines 604–700)
-Built inside `with st.sidebar:`. Flow:
-1. "Events by KERB" header (HTML/CSS)
-2. Login form (if no token) → `st.stop()` blocks the rest
-3. Logged-in state: sign out button, outlet selector, date pickers, bucket size
-4. "Fetch Data" button (primary)
-5. "Fetch All Outlets" button (below, with warning)
+**7. Sidebar UI** — Login form → outlet selector → date pickers → fetch buttons.
 
-### 8. Main Area — Data Fetching (lines 703–791)
-- Determines fetch mode (single outlet vs all outlets)
-- Builds `cache_key` to detect whether cached data matches current selections
-- On fetch: loops through time buckets, calls `fetch_wastage()`, builds DataFrames
-- Stores results in session state
+**8. Data Fetching** — Cache key management, API calls per time bucket, DataFrame construction.
 
-**Cache key pattern**: `"ALL|{start}|{end}|{granularity}"` for all-outlets mode, or `"{outlet_id}|{start}|{end}|{granularity}"` for single outlet. The `was_all_outlets` check prevents losing data when sidebar widgets cause a rerun.
-
-### 9. Main Area — Dashboard (lines 793–1025)
-Sequential rendering:
-1. **KPI Cards** — 4-column metric display
-2. **View toggle** — Products / Ingredients / Both radio
-3. **Chart 1** — Stacked bar + line (Wastage Cost Over Time)
-4. **Charts 2 & 3** — Horizontal bars in 2-column layout (Top 15 by Cost, Top 15 by Units)
-5. **Chart 4** — Line chart (Selected Item Trends, conditional on multiselect)
-6. **Raw Data** — Expandable dataframe + CSV download
-7. **PDF Export** — Commentary text area + generate/download buttons
+**9. Dashboard Rendering** — KPI cards → view toggle → 4 charts → raw data → PDF export.
 
 ## Data Flow
 
-```
-Goodtill API
-    │
-    ▼
-fetch_wastage() ──► raw JSON response
-    │
-    ├── summary_from_response() ──► df_summary (period-level totals)
-    │                                 columns: period, product_cost_price,
-    │                                          ingredient_cost_price, total_cost_price
-    │
-    └── products_from_response() ──► df_products (item-level detail)
-                                      columns: period, outlet, cost_type,
-                                               product_name, product_sku,
-                                               quantity, cost_price,
-                                               purchase_price, retail_value
+```mermaid
+flowchart TD
+    API["Goodtill API\n/api/ajax/super_wastages"]
+
+    API -->|"JSON response"| FW["fetch_wastage()"]
+
+    FW --> SFR["summary_from_response()"]
+    FW --> PFR["products_from_response()"]
+
+    SFR --> DFS["df_summary\n─────────────\nperiod\nproduct_cost_price\ningredient_cost_price\ntotal_cost_price"]
+
+    PFR --> DFP["df_products\n─────────────\nperiod, outlet\ncost_type, product_name\nproduct_sku, quantity\ncost_price, purchase_price\nretail_value"]
+
+    DFS --> KPI["KPI Cards"]
+    DFS --> C1["Chart 1\nCost Over Time"]
+
+    DFP --> C2["Chart 2\nTop 15 by Cost"]
+    DFP --> C3["Chart 3\nTop 15 by Units"]
+    DFP --> C4["Chart 4\nItem Trends"]
+    DFP --> RAW["Raw Data Table"]
+
+    C1 --> PDF["PDF Report"]
+    C2 --> PDF
+    C3 --> PDF
+    C4 --> PDF
+    KPI --> PDF
+
+    style DFS fill:#006653,color:#fff
+    style DFP fill:#006653,color:#fff
+    style PDF fill:#F190AE,color:#000
+    style API fill:#94F3E4,color:#000
 ```
 
-`df_summary` drives Chart 1 and the KPI cards.
-`df_products` drives Charts 2–4 and the raw data table.
+## Session State Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> LoggedOut
+
+    LoggedOut --> LoggedIn: do_login() succeeds
+    LoggedIn --> LoggedOut: Sign out clicked
+
+    LoggedIn --> DataReady: Fetch Data / Fetch All
+    DataReady --> DataReady: Change view filter
+    DataReady --> DataStale: Change date/outlet
+    DataStale --> DataReady: Re-fetch
+
+    state DataReady {
+        [*] --> SingleOutlet
+        SingleOutlet --> AllOutlets: Fetch All Outlets
+        AllOutlets --> SingleOutlet: Fetch Data
+    }
+
+    note right of DataReady
+        cache_key tracks:
+        outlet | start | end | granularity
+        Prefix "ALL|" for all-outlets mode
+    end note
+```
+
+## Cache Key Logic
+
+```mermaid
+flowchart TD
+    START{Button pressed?}
+    START -->|Fetch Data| SK["cache_key =\n{outlet_id}|{start}|{end}|{gran}"]
+    START -->|Fetch All| AK["cache_key =\nALL|{start}|{end}|{gran}"]
+    START -->|No button\njust rerun| CHECK{Was last fetch\nall-outlets?}
+
+    CHECK -->|"loaded_label\nstarts with ALL|"| AK2["cache_key =\nALL|{start}|{end}|{gran}"]
+    CHECK -->|No| SK2["cache_key =\n{outlet_id}|{start}|{end}|{gran}"]
+
+    SK --> MATCH{cache_key ==\nloaded_label?}
+    AK --> MATCH
+    AK2 --> MATCH
+    SK2 --> MATCH
+
+    MATCH -->|Yes| SHOW[Show cached data]
+    MATCH -->|No & button pressed| FETCH[Fetch from API]
+    MATCH -->|No & no button| PROMPT["Show 'Select outlet…' prompt"]
+
+    style AK fill:#F190AE,color:#000
+    style AK2 fill:#F190AE,color:#000
+    style SK fill:#94F3E4,color:#000
+    style SK2 fill:#94F3E4,color:#000
+```
+
+## Dashboard Layout
+
+```mermaid
+graph TD
+    subgraph Sidebar["Sidebar (teal #006653)"]
+        LOGO["EVENTS by KERB"]
+        AUTH["Login / Sign Out"]
+        OUTLET["Outlet Selector"]
+        DATE["Date Range + Bucket Size"]
+        FETCH["Fetch Data Button"]
+        FETCHALL["Fetch All Outlets\n⚠️ Warning"]
+    end
+
+    subgraph Main["Main Area (warm white #FAF2EB)"]
+        HEADER["Wastage Trends — {Outlet}"]
+        KPIS["KPI Cards × 4"]
+        TOGGLE["Products / Ingredients / Both"]
+        CHART1["Wastage Cost Over Time\nStacked Bar + Line"]
+        subgraph TwoCol["Side by Side"]
+            CHART2["Top 15\nby Cost"]
+            CHART3["Top 15\nby Units"]
+        end
+        CHART4["Selected Item Trends\n(conditional)"]
+        RAWDATA["Raw Data Expander + CSV"]
+        PDFEXPORT["PDF Export\nCommentary + Download"]
+    end
+
+    LOGO --> AUTH --> OUTLET --> DATE --> FETCH --> FETCHALL
+    HEADER --> KPIS --> TOGGLE --> CHART1 --> TwoCol --> CHART4 --> RAWDATA --> PDFEXPORT
+
+    style Sidebar fill:#006653,color:#fff
+    style Main fill:#FAF2EB,color:#000
+    style KPIS fill:#006653,color:#fff
+    style TOGGLE fill:#006653,color:#fff
+    style PDFEXPORT fill:#F190AE,color:#000
+```
 
 ## Dependencies
 
@@ -148,7 +242,7 @@ All custom CSS is in the single `st.markdown("""<style>...</style>""")` block ne
 - Metric cards need explicit overrides to stay white on teal
 
 ### Changing brand colours
-Update both:
+Update all three locations:
 1. CSS variables in `:root { }` block
 2. RGB tuples in `generate_pdf()` (`TEAL`, `MINT`, `PINK`, etc.)
 3. Hex values in Plotly chart `marker_color` / `color_continuous_scale` properties

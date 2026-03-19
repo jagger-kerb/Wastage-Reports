@@ -8,6 +8,26 @@ Internal reporting tool for KERB Events that connects to the Goodtill POS API to
 
 KERB operations and management staff. Access is controlled via Goodtill credentials (subdomain + username + password).
 
+## User Journey
+
+```mermaid
+flowchart LR
+    A[Open App] --> B[Login]
+    B --> C[Select Outlet]
+    C --> D[Set Date Range]
+    D --> E{Fetch Mode}
+    E -->|Single| F[Fetch Data]
+    E -->|All| G[Fetch All Outlets]
+    F --> H[View Dashboard]
+    G --> H
+    H --> I[Filter: Products / Ingredients / Both]
+    I --> J[Analyse Charts & Tables]
+    J --> K{Export?}
+    K -->|PDF| L[Add Commentary → Generate PDF]
+    K -->|CSV| M[Download CSV]
+    K -->|No| J
+```
+
 ## Core Features
 
 ### Authentication
@@ -53,6 +73,35 @@ KERB operations and management staff. Access is controlled via Goodtill credenti
   - User commentary section (optional free-text input)
 - Filename format: `{Outlet} - {Start Date} to {End Date} - Wastage Report.pdf`
 
+### PDF Page Layout
+
+```mermaid
+block-beta
+    columns 3
+
+    block:page1:3
+        columns 3
+        p1title["Page 1: Report Cover + Chart"]:3
+        p1a["Teal Title Bar\nWASTAGE REPORT"]:3
+        p1b["Outlet Name | Date Range | Filter"]:3
+        p1c["KPI Card\nTotal Cost"] p1d["KPI Card\nProduct Cost"] p1e["KPI Card\nIngredient Cost"]
+        p1f["Wastage Cost Over Time Chart"]:3
+    end
+
+    block:page2:3
+        columns 2
+        p2title["Page 2: Top 15 Tables"]:2
+        p2a["Top 15 by\nWastage Cost"] p2b["Top 15 by\nUnits Wasted"]
+    end
+
+    block:page3:3
+        columns 1
+        p3title["Page 3+: Optional"]
+        p3a["Item Trends Chart\n(if items selected)"]
+        p3b["Commentary\n(if provided)"]
+    end
+```
+
 ## Branding
 
 KERB Events brand system applied throughout:
@@ -72,13 +121,33 @@ KERB Events brand system applied throughout:
 - Charts: brand colour palette (no default Plotly colours)
 - PDF: matching brand colours with teal title bar, mint accent lines, pink section underlines
 
-## API Endpoints
+## API Communication
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/login` | POST | Authenticate, returns bearer token |
-| `/api/outlets` | GET | List accessible outlets |
-| `/api/ajax/super_wastages` | POST | Fetch wastage data for date range + outlet(s) |
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant S as Streamlit App
+    participant API as Goodtill API
+
+    U->>S: Enter credentials
+    S->>API: POST /api/login
+    API-->>S: Bearer token
+
+    S->>API: GET /api/outlets
+    API-->>S: Outlet list
+
+    U->>S: Select outlet + date range
+    U->>S: Click "Fetch Data"
+
+    loop Each time bucket
+        S->>API: POST /api/ajax/super_wastages
+        Note right of API: daterange + outlet_id[]
+        API-->>S: Wastage data (summary + products)
+    end
+
+    S->>S: Build DataFrames
+    S->>U: Render charts + tables
+```
 
 ### Wastage API Payload
 ```json
@@ -90,22 +159,71 @@ KERB Events brand system applied throughout:
 ```
 
 ### Wastage API Response Structure
-```
-data
-├── product_cost_price      (summary total)
-├── ingredient_cost_price   (summary total)
-├── total_cost_price        (summary total)
-└── outlets[]
-    ├── outlet_name
-    ├── products[]
-    │   ├── product_name, product_sku
-    │   ├── quantity, cost_price, purchase_price, retail_value
-    └── ingredients[]
-        ├── ingredient_name, ingredient_sku
-        ├── quantity, cost_price, purchase_price, retail_value
+
+```mermaid
+classDiagram
+    class APIResponse {
+        +float product_cost_price
+        +float ingredient_cost_price
+        +float total_cost_price
+        +Outlet[] outlets
+    }
+    class Outlet {
+        +string outlet_name
+        +Product[] products
+        +Ingredient[] ingredients
+    }
+    class Product {
+        +string product_name
+        +string product_sku
+        +float quantity
+        +float cost_price
+        +float purchase_price
+        +float retail_value
+    }
+    class Ingredient {
+        +string ingredient_name
+        +string ingredient_sku
+        +float quantity
+        +float cost_price
+        +float purchase_price
+        +float retail_value
+    }
+    APIResponse --> Outlet
+    Outlet --> Product
+    Outlet --> Ingredient
 ```
 
 ## Tech Stack
+
+```mermaid
+graph TB
+    subgraph Frontend
+        ST[Streamlit]
+        PL[Plotly Charts]
+        CSS[Custom CSS / KERB Brand]
+    end
+    subgraph Backend
+        PD[pandas]
+        RQ[requests]
+        FP[fpdf2]
+        KL[kaleido 0.2.1]
+    end
+    subgraph External
+        API[Goodtill POS API]
+        SC[Streamlit Cloud]
+    end
+
+    ST --> PL
+    ST --> CSS
+    ST --> PD
+    RQ --> API
+    PD --> PL
+    PD --> FP
+    PL --> KL
+    KL --> FP
+    ST --> SC
+```
 
 | Component | Technology |
 |-----------|-----------|
