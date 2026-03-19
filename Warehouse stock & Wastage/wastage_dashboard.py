@@ -20,7 +20,7 @@ import os
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Wastage Dashboard",
-    page_icon="chart_with_upwards_trend",
+    page_icon="\U0001F4CA",
     layout="wide",
 )
 
@@ -157,6 +157,11 @@ st.markdown("""
 /* ── Expander ───────────────────────────────────────────────────────────── */
 .stApp [data-testid="stExpander"] {
     border-color: var(--kerb-mint) !important;
+}
+
+/* ── Hide sidebar nav page icon/label tooltip ──────────────────────────── */
+[data-testid="stSidebarNav"] {
+    display: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -494,7 +499,24 @@ def generate_pdf(
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.title("Wastage Dashboard")
+    st.markdown(
+        """
+        <div style="text-align:center; padding: 10px 0 6px 0;">
+            <span style="font-family:'DIN Condensed','Arial Narrow',sans-serif;
+                         font-weight:800; font-size:2rem; color:#FFFFFF;
+                         text-transform:uppercase; letter-spacing:2px;
+                         display:block; line-height:1;">EVENTS</span>
+            <span style="font-family:'DIN Condensed','Arial Narrow',sans-serif;
+                         font-weight:800; font-size:1.3rem; color:#FFFFFF;
+                         text-transform:uppercase; letter-spacing:3px;
+                         display:block; line-height:1.1;">by KERB</span>
+        </div>
+        <p style="text-align:center; font-size:0.75rem; color:#94F3E4;
+                  text-transform:uppercase; letter-spacing:1px; margin:4px 0 0 0;
+                  font-family:'Karla',sans-serif;">Wastage Dashboard</p>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # ── Login / logged-in state ────────────────────────────────────────────────
     if st.session_state.token is None:
