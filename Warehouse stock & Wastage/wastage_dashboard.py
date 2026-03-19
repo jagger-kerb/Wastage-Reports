@@ -249,6 +249,7 @@ for key, default in {
     "df_products":  None,
     "period_order": None,
     "loaded_label": None,  # "outlet | start – end" to detect stale cache
+    "display_name": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -674,6 +675,16 @@ with st.sidebar:
 
         st.divider()
 
+        st.markdown(
+            "<p style='color:#FAC430 !important; font-size:0.75rem; margin-bottom:4px;'>"
+            "&#9888; Fetching all outlets will make one API call per outlet per time "
+            "bucket. This can take several minutes for large date ranges.</p>",
+            unsafe_allow_html=True,
+        )
+        fetch_all_btn = st.button("Fetch All Outlets", use_container_width=True)
+
+        st.divider()
+
         # ── Date range & options ───────────────────────────────────────────────
         st.subheader("Date Range")
         c1, c2 = st.columns(2)
@@ -689,41 +700,82 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN AREA  (only reached when logged in)
 # ══════════════════════════════════════════════════════════════════════════════
-st.header(f"Wastage Trends — {chosen_name}")
 
-cache_key = f"{outlet_id}|{start_date}|{end_date}|{granularity}"
+# Determine which fetch mode was triggered
+is_all_outlets = fetch_all_btn
+active_fetch = fetch_btn or fetch_all_btn
+
+if active_fetch:
+    display_name = "All Outlets" if is_all_outlets else chosen_name
+elif st.session_state.display_name:
+    display_name = st.session_state.display_name
+else:
+    display_name = chosen_name
+
+st.header(f"Wastage Trends — {display_name}")
+
+if is_all_outlets:
+    cache_key = f"ALL|{start_date}|{end_date}|{granularity}"
+else:
+    cache_key = f"{outlet_id}|{start_date}|{end_date}|{granularity}"
 data_ready = st.session_state.loaded_label == cache_key
 
-if fetch_btn:
+if active_fetch:
     if start_date >= end_date:
         st.error("Start date must be before end date.")
         st.stop()
 
-    # ── Fetch data in buckets ──────────────────────────────────────────────
     buckets = bucket_dates(start_date, end_date, granularity)
-    st.write(f"Fetching **{len(buckets)}** {granularity.lower()} buckets for **{chosen_name}**…")
+
+    # Build list of outlets to fetch
+    if is_all_outlets:
+        fetch_outlets_list = [(o["id"], o["outlet_name"]) for o in outlets]
+    else:
+        fetch_outlets_list = [(outlet_id, chosen_name)]
+
+    total_steps = len(buckets) * len(fetch_outlets_list)
+    st.write(
+        f"Fetching **{len(buckets)}** {granularity.lower()} bucket(s) "
+        f"across **{len(fetch_outlets_list)}** outlet(s) "
+        f"(**{total_steps}** API calls)…"
+    )
 
     progress      = st.progress(0)
     all_summaries = []
     all_products  = []
+    step = 0
 
-    for i, (b_start, b_end) in enumerate(buckets):
-        label = b_start.strftime("%d %b %Y")
-        data  = fetch_wastage(st.session_state.token, outlet_id, b_start, b_end)
-        if data:
-            all_summaries.append(summary_from_response(data, label))
-            all_products.extend(products_from_response(data, label))
-        progress.progress((i + 1) / len(buckets))
+    for oid, oname in fetch_outlets_list:
+        for b_start, b_end in buckets:
+            label = b_start.strftime("%d %b %Y")
+            data  = fetch_wastage(st.session_state.token, oid, b_start, b_end)
+            if data:
+                all_summaries.append(summary_from_response(data, label))
+                all_products.extend(products_from_response(data, label))
+            step += 1
+            progress.progress(step / total_steps)
 
     progress.empty()
 
     if not all_summaries:
-        st.warning("No wastage data returned for this outlet and date range.")
+        st.warning("No wastage data returned for the selected outlet(s) and date range.")
         st.stop()
 
     period_order = [b[0].strftime("%d %b %Y") for b in buckets]
     df_summary   = pd.DataFrame(all_summaries)
     df_products  = pd.DataFrame(all_products)
+
+    # When fetching all outlets, aggregate duplicate periods
+    if is_all_outlets:
+        df_summary = df_summary.groupby("period", observed=False).sum(numeric_only=True).reset_index()
+        df_products_agg = df_products.groupby(
+            ["period", "cost_type", "product_name", "product_sku"], observed=False
+        ).agg({
+            "quantity": "sum", "cost_price": "sum",
+            "purchase_price": "sum", "retail_value": "sum",
+        }).reset_index()
+        df_products_agg["outlet"] = "All Outlets"
+        df_products = df_products_agg
 
     for df in (df_summary, df_products):
         df["period"] = pd.Categorical(df["period"], categories=period_order, ordered=True)
@@ -732,6 +784,7 @@ if fetch_btn:
     st.session_state.df_products  = df_products.sort_values("period")
     st.session_state.period_order = period_order
     st.session_state.loaded_label = cache_key
+    st.session_state.display_name = display_name
     data_ready = True
 
 elif not data_ready:
@@ -951,7 +1004,7 @@ if not df_products.empty:
         if st.button("Generate PDF", type="primary"):
             with st.spinner("Building PDF report…"):
                 pdf_bytes = generate_pdf(
-                    outlet_name=chosen_name,
+                    outlet_name=display_name,
                     start_date=start_date,
                     end_date=end_date,
                     view_mode=view_mode,
@@ -968,6 +1021,6 @@ if not df_products.empty:
             st.download_button(
                 "Download PDF",
                 data=pdf_bytes,
-                file_name=f"{chosen_name} - {start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')} - Wastage Report.pdf",
+                file_name=f"{display_name} - {start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')} - Wastage Report.pdf",
                 mime="application/pdf",
             )
