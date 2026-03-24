@@ -305,19 +305,16 @@ def make_daterange(start: date, end: date) -> str:
     return f"{s.strftime(DATE_FMT)} - {e.strftime(DATE_FMT)}"
 
 
-def fetch_wastage(token: str, outlet_id, start: date, end: date) -> dict | None:
-    """Fetch wastage data. outlet_id can be a single ID string or a list of IDs."""
-    id_list = outlet_id if isinstance(outlet_id, list) else [outlet_id]
-    header_id = id_list[0]  # API header takes a single ID
+def fetch_wastage(token: str, start: date, end: date, outlet_name: str | None = None) -> dict | None:
+    """Fetch wastage for a date range. The API ignores outlet filters and
+    always returns all outlets, so we filter client-side by outlet_name."""
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type":  "application/json",
-        "Outlet-Id":     header_id,
     }
     payload = {
         "daterange":              make_daterange(start, end),
         "consider_ingredient_cost": 1,
-        "outlet_id":              id_list,
     }
     try:
         r = requests.post(WASTAGE_URL, headers=headers, json=payload, timeout=30)
@@ -326,7 +323,14 @@ def fetch_wastage(token: str, outlet_id, start: date, end: date) -> dict | None:
         if not body.get("status"):
             st.warning(f"API status=false for {start} to {end}")
             return None
-        return body["data"]
+        data = body["data"]
+        # Filter to the selected outlet if specified
+        if outlet_name:
+            data["outlets"] = [
+                o for o in data.get("outlets", [])
+                if o.get("outlet_name", "").upper() == outlet_name.upper()
+            ]
+        return data
     except requests.exceptions.RequestException as e:
         st.error(f"Request failed ({start} to {end}): {e}")
         return None
@@ -380,11 +384,17 @@ def products_from_response(data: dict, period_label: str) -> list[dict]:
 
 
 def summary_from_response(data: dict, period_label: str) -> dict:
+    """Compute totals from the (already-filtered) per-outlet breakdown."""
+    product_cost = 0.0
+    ingredient_cost = 0.0
+    for o in data.get("outlets", []):
+        product_cost += sum(float(p.get("cost_price", 0) or 0) for p in o.get("products", []))
+        ingredient_cost += sum(float(ing.get("cost_price", 0) or 0) for ing in o.get("ingredients", []))
     return {
         "period":                period_label,
-        "product_cost_price":    data.get("product_cost_price", 0) or 0,
-        "ingredient_cost_price": data.get("ingredient_cost_price", 0) or 0,
-        "total_cost_price":      data.get("total_cost_price", 0) or 0,
+        "product_cost_price":    product_cost,
+        "ingredient_cost_price": ingredient_cost,
+        "total_cost_price":      product_cost + ingredient_cost,
     }
 
 
@@ -742,16 +752,15 @@ if active_fetch:
 
     buckets = bucket_dates(start_date, end_date, granularity)
 
-    # In all-outlets mode, pass all outlet IDs in a single API call per bucket
+    # In all-outlets mode, don't filter by outlet (API returns all anyway)
     if is_all_outlets:
-        all_outlet_ids = [o["id"] for o in outlets]
-        fetch_id = all_outlet_ids
+        fetch_outlet_name = None
         st.write(
             f"Fetching **{len(buckets)}** {granularity.lower()} bucket(s) "
-            f"across **{len(all_outlet_ids)}** outlets…"
+            f"across **all outlets**…"
         )
     else:
-        fetch_id = outlet_id
+        fetch_outlet_name = chosen_name
         st.write(f"Fetching **{len(buckets)}** {granularity.lower()} buckets for **{chosen_name}**…")
 
     progress      = st.progress(0)
@@ -760,7 +769,7 @@ if active_fetch:
 
     for i, (b_start, b_end) in enumerate(buckets):
         label = b_start.strftime("%d %b %Y")
-        data  = fetch_wastage(st.session_state.token, fetch_id, b_start, b_end)
+        data  = fetch_wastage(st.session_state.token, b_start, b_end, outlet_name=fetch_outlet_name)
         if data:
             all_summaries.append(summary_from_response(data, label))
             all_products.extend(products_from_response(data, label))
