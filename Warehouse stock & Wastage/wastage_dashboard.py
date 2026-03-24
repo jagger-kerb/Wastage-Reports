@@ -324,12 +324,25 @@ def fetch_wastage(token: str, start: date, end: date, outlet_name: str | None = 
             st.warning(f"API status=false for {start} to {end}")
             return None
         data = body["data"]
-        # Filter to the selected outlet if specified
+        # Filter to the selected outlet if specified.
+        # The API ignores server-side outlet filters and always returns
+        # all outlets, so we must match client-side by name.
         if outlet_name:
+            target = outlet_name.strip().upper()
+            all_outlets = data.get("outlets", [])
             data["outlets"] = [
-                o for o in data.get("outlets", [])
-                if o.get("outlet_name", "").upper() == outlet_name.upper()
+                o for o in all_outlets
+                if (o.get("outlet_name") or o.get("name") or "").strip().upper() == target
             ]
+            if not data["outlets"] and all_outlets:
+                api_names = [
+                    (o.get("outlet_name") or o.get("name") or str(list(o.keys())[:5]))
+                    for o in all_outlets[:8]
+                ]
+                st.warning(
+                    f"Outlet filter matched 0 of {len(all_outlets)} outlets. "
+                    f"Looking for **{outlet_name}**, API returned: {api_names}"
+                )
         return data
     except requests.exceptions.RequestException as e:
         st.error(f"Request failed ({start} to {end}): {e}")
