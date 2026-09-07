@@ -67,7 +67,7 @@ flowchart LR
 - Generates a branded landscape A4 PDF report containing:
   - Title bar with outlet name, date range, filter mode, generation timestamp
   - KPI summary cards (Total Wastage Cost, Product Cost, Ingredient Cost, Total Units Wasted)
-  - Wastage Cost Over Time chart (rendered as PNG via kaleido)
+  - Wastage Cost Over Time chart (re-drawn as PNG via matplotlib)
   - Top 15 tables side by side (Wastage Cost + Units Wasted)
   - Selected Item Trends chart (if items are selected)
   - User commentary section (optional free-text input)
@@ -207,7 +207,7 @@ graph TB
         PD[pandas]
         RQ[requests]
         FP[fpdf2]
-        KL[kaleido 0.2.1]
+        MP[matplotlib]
     end
     subgraph External
         API[Goodtill POS API]
@@ -220,8 +220,8 @@ graph TB
     RQ --> API
     PD --> PL
     PD --> FP
-    PL --> KL
-    KL --> FP
+    PD --> MP
+    MP --> FP
     ST --> SC
 ```
 
@@ -230,14 +230,14 @@ graph TB
 | Framework | Streamlit |
 | Charts | Plotly (graph_objects + express) |
 | PDF | fpdf2 |
-| Chart export | kaleido 0.2.1 (bundles Chromium) |
+| PDF charts | matplotlib (Agg backend, no browser needed) |
 | Data | pandas |
 | API | requests |
 | Hosting | Streamlit Cloud |
 
 ## Constraints & Known Limitations
 
-- **kaleido pinned to 0.2.1**: Newer versions require system Chrome which Streamlit Cloud doesn't provide
+- **PDF charts are matplotlib, not Plotly**: Plotly static export needs kaleido plus a system Chrome binary, which Streamlit Cloud doesn't provide (and plotly >= 6 rejects the old self-contained kaleido 0.2.1). The PDF charts mirror the on-screen Plotly charts but are drawn separately, so styling changes must be made in both places
 - **All outlets mode**: Uses the API's list support for `outlet_id` — if the API doesn't properly filter by outlet list, totals may be inaccurate
 - **No persistent storage**: All data is fetched on demand; no database or caching layer
 - **Session-only auth**: Token is lost on browser refresh or session timeout
