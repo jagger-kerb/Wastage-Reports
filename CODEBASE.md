@@ -71,7 +71,7 @@ graph TD
 | `products_from_response()` | Extract product + ingredient rows from API response |
 | `summary_from_response()` | Extract period-level cost totals from API response |
 
-**6. PDF Generation** — `generate_pdf()` builds a branded landscape A4 PDF. Key internals: `draw_bg()`, `embed_chart()`, `section_heading()`, KPI cards with absolute positioning, side-by-side tables.
+**6. PDF Generation** — `render_cost_chart_png()` / `render_trend_chart_png()` draw matplotlib twins of the on-screen charts as PNG bytes. `generate_pdf()` builds a branded landscape A4 PDF from them. Key internals: `draw_bg()`, `embed_chart()` (scales a PNG to fit the remaining page), `section_heading()`, KPI cards with absolute positioning, side-by-side tables.
 
 **7. Sidebar UI** — Login form → outlet selector → date pickers → fetch buttons.
 
@@ -215,7 +215,7 @@ graph TD
 | plotly | latest | Interactive charts |
 | python-dateutil | latest | `relativedelta` for monthly bucketing |
 | fpdf2 | latest | PDF generation |
-| kaleido | 0.2.1 | Plotly chart → PNG export (pinned — see SPEC.md) |
+| matplotlib | latest | Draws the PDF charts as PNG (no kaleido/Chrome — see SPEC.md) |
 
 ## Deployment
 
@@ -230,7 +230,7 @@ The entry point is configured to `Warehouse stock & Wastage/wastage_dashboard.py
 2. Create a Plotly figure with brand colours (pink `#F190AE`, mint `#94F3E4`, teal `#006653`)
 3. Set `font=dict(color="#1A1A1A")` and explicit axis tick/title colours in the layout
 4. Use `plot_bgcolor="rgba(0,0,0,0)"` and `paper_bgcolor="rgba(0,0,0,0)"` for transparent background
-5. Optionally add it to `generate_pdf()` using `embed_chart()`
+5. Optionally add it to the PDF: write a `render_*_chart_png()` matplotlib twin of the chart (see `render_cost_chart_png()`), then pass the PNG bytes into `generate_pdf()` and place it with `embed_chart()`
 
 ### Adding a new KPI card
 Add another column to the `k1, k2, k3, k4 = st.columns(4)` line and call `.metric()`.

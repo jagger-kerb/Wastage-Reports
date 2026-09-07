@@ -14,8 +14,11 @@ from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from fpdf import FPDF
 import io
-import tempfile
-import os
+import matplotlib
+matplotlib.use("Agg")  # headless backend — no display, no browser
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+from PIL import Image
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -411,13 +414,135 @@ def summary_from_response(data: dict, period_label: str) -> dict:
     }
 
 
+# ── Chart rendering for PDF ───────────────────────────────────────────────────
+# Plotly's static export needs kaleido + a Chrome binary, neither of which is
+# available on Streamlit Cloud. The PDF charts are therefore drawn with
+# matplotlib (pure Python) and mirror the on-screen Plotly charts.
+_PDF_DARK = "#1A1A1A"
+_PDF_LINE_PALETTE = [
+    "#006653", "#E9496E", "#FAC430", "#2BB8A3", "#F190AE",
+    "#7B61FF", "#FF7A00", "#1A1A1A", "#94F3E4", "#B5651D",
+]
+
+
+def _style_pdf_axes(ax, x_labels):
+    ax.set_facecolor("none")
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color("#CCCCCC")
+    ax.grid(axis="y", color="#E0E0E0", linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(colors=_PDF_DARK, labelsize=9)
+    ax.xaxis.label.set_color(_PDF_DARK)
+    ax.yaxis.label.set_color(_PDF_DARK)
+    ax.set_xticks(range(len(x_labels)))
+    ax.set_xticklabels(
+        x_labels,
+        rotation=45 if len(x_labels) > 8 else 0,
+        ha="right" if len(x_labels) > 8 else "center",
+    )
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"\u00a3{v:,.0f}"))
+    ax.set_ylim(bottom=0)
+
+
+def _fig_to_png(fig) -> bytes:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight", transparent=True)
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def render_cost_chart_png(df_summary: pd.DataFrame, view_mode: str) -> bytes:
+    """Stacked product/ingredient cost bars with a total line, as PNG bytes."""
+    periods = [str(p) for p in df_summary["period"]]
+    x = list(range(len(periods)))
+    fig, ax = plt.subplots(figsize=(14, 5))
+    fig.patch.set_alpha(0)
+
+    bottom = [0.0] * len(periods)
+    if view_mode in ("Products", "Both"):
+        vals = df_summary["product_cost_price"].astype(float).tolist()
+        ax.bar(x, vals, width=0.6, color="#F190AE", label="Product Cost")
+        bottom = [b + v for b, v in zip(bottom, vals)]
+    if view_mode in ("Ingredients", "Both"):
+        vals = df_summary["ingredient_cost_price"].astype(float).tolist()
+        ax.bar(x, vals, bottom=bottom, width=0.6, color="#94F3E4", label="Ingredient Cost")
+
+    if view_mode == "Products":
+        total = df_summary["product_cost_price"]
+    elif view_mode == "Ingredients":
+        total = df_summary["ingredient_cost_price"]
+    else:
+        total = df_summary["total_cost_price"]
+    total = total.astype(float).tolist()
+
+    ax.plot(x, total, color="#006653", linewidth=2, marker="o", markersize=5, label="Total", zorder=3)
+    for xi, v in zip(x, total):
+        ax.annotate(
+            f"\u00a3{v:,.2f}", (xi, v), textcoords="offset points", xytext=(0, 7),
+            ha="center", fontsize=9, color=_PDF_DARK,
+        )
+
+    ax.set_xlabel("Period")
+    ax.set_ylabel("Cost (\u00a3)")
+    _style_pdf_axes(ax, periods)
+    if total and max(total) > 0:
+        ax.set_ylim(0, max(total) * 1.15)  # headroom for the value labels
+    handles, labels = ax.get_legend_handles_labels()
+    order = [i for i, l in enumerate(labels) if l != "Total"] + [labels.index("Total")]
+    ax.legend(
+        [handles[i] for i in order], [labels[i] for i in order],
+        loc="lower right", bbox_to_anchor=(1, 1.0), ncol=3, frameon=False,
+        fontsize=9, labelcolor=_PDF_DARK,
+    )
+    return _fig_to_png(fig)
+
+
+def render_trend_chart_png(trend_data: pd.DataFrame, period_order: list[str]) -> bytes:
+    """One line per selected item across periods, as PNG bytes."""
+    periods = [str(p) for p in period_order]
+    pos = {p: i for i, p in enumerate(periods)}
+    fig, ax = plt.subplots(figsize=(14, 5))
+    fig.patch.set_alpha(0)
+
+    y_max = 0.0
+    for i, (name, grp) in enumerate(trend_data.groupby("product_name", sort=True)):
+        grp = grp.sort_values("period")
+        xs = [pos[str(p)] for p in grp["period"] if str(p) in pos]
+        ys = grp["cost_price"].astype(float).tolist()[: len(xs)]
+        colour = _PDF_LINE_PALETTE[i % len(_PDF_LINE_PALETTE)]
+        ax.plot(xs, ys, color=colour, linewidth=2, marker="o", markersize=5, label=str(name))
+        for xi, v in zip(xs, ys):
+            ax.annotate(
+                f"\u00a3{v:,.2f}", (xi, v), textcoords="offset points", xytext=(0, 7),
+                ha="center", fontsize=8, color=_PDF_DARK,
+            )
+        if ys:
+            y_max = max(y_max, max(ys))
+
+    ax.set_xlabel("Period")
+    ax.set_ylabel("Cost (\u00a3)")
+    _style_pdf_axes(ax, periods)
+    if y_max > 0:
+        ax.set_ylim(0, y_max * 1.15)
+    ax.legend(
+        title="Item", loc="upper left", bbox_to_anchor=(1.01, 1), frameon=False,
+        fontsize=9, labelcolor=_PDF_DARK,
+    )
+    return _fig_to_png(fig)
+
+
 # ── PDF generation ────────────────────────────────────────────────────────────
 def generate_pdf(
     outlet_name, start_date, end_date, view_mode,
     total_cost, total_product_cost, total_ingredient, total_qty,
-    fig_cost, top_cost_df, top_qty_df, fig_trend, commentary,
+    cost_chart_png, top_cost_df, top_qty_df, trend_chart_png, commentary,
 ):
-    """Build a PDF report and return it as bytes."""
+    """Build a PDF report and return it as bytes.
+
+    Charts are passed in as PNG bytes (see render_*_chart_png above).
+    """
     # KERB brand colours (RGB)
     TEAL = (0, 102, 83)
     MINT = (148, 243, 228)
@@ -499,14 +624,17 @@ def generate_pdf(
 
     pdf.set_y(y_pos + card_h + 6)
 
-    # ── Helper to embed a Plotly chart ────────────────────────────────────────
-    def embed_chart(fig, width_mm=260):
-        img_bytes = fig.to_image(format="png", width=1400, height=500, scale=2)
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            tmp.write(img_bytes)
-            tmp_path = tmp.name
-        pdf.image(tmp_path, w=width_mm)
-        os.unlink(tmp_path)
+    # ── Helper to embed a pre-rendered chart PNG ──────────────────────────────
+    def embed_chart(png_bytes, width_mm=260):
+        # Scale to fit the space left on the page so we never trigger an
+        # automatic page break (which would land on an un-styled white page).
+        with Image.open(io.BytesIO(png_bytes)) as im:
+            px_w, px_h = im.size
+        h_mm = width_mm * px_h / px_w
+        avail_mm = pdf.h - pdf.b_margin - pdf.get_y() - 2
+        if h_mm > avail_mm:
+            width_mm = width_mm * avail_mm / h_mm
+        pdf.image(io.BytesIO(png_bytes), x=(pdf.w - width_mm) / 2, w=width_mm)
         pdf.ln(4)
 
     # ── Section heading helper ────────────────────────────────────────────────
@@ -521,7 +649,7 @@ def generate_pdf(
 
     # ── Cost Over Time chart ──────────────────────────────────────────────────
     section_heading("Wastage Cost Over Time")
-    embed_chart(fig_cost)
+    embed_chart(cost_chart_png)
 
     # ── Top 15 tables (side by side) ─────────────────────────────────────────
     pdf.add_page()
@@ -600,11 +728,11 @@ def generate_pdf(
     pdf.set_y(y_header + row_h * 16 + 4)
 
     # ── Trends chart (if provided) ────────────────────────────────────────────
-    if fig_trend is not None:
+    if trend_chart_png is not None:
         pdf.add_page()
         draw_bg()
         section_heading("Selected Item Trends Over Time")
-        embed_chart(fig_trend)
+        embed_chart(trend_chart_png)
 
     # ── Commentary ────────────────────────────────────────────────────────────
     if commentary and commentary.strip():
@@ -1024,6 +1152,11 @@ if not df_products.empty:
 
         if st.button("Generate PDF", type="primary"):
             with st.spinner("Building PDF report…"):
+                period_order = [str(p) for p in df_summary["period"]]
+                trend_chart_png = (
+                    render_trend_chart_png(trend_data, period_order)
+                    if fig_trend is not None else None
+                )
                 pdf_bytes = generate_pdf(
                     outlet_name=display_name,
                     start_date=start_date,
@@ -1033,10 +1166,10 @@ if not df_products.empty:
                     total_product_cost=total_product_cost,
                     total_ingredient=total_ingredient,
                     total_qty=total_qty,
-                    fig_cost=fig_cost,
+                    cost_chart_png=render_cost_chart_png(df_summary, view_mode),
                     top_cost_df=top_cost,
                     top_qty_df=top_qty,
-                    fig_trend=fig_trend,
+                    trend_chart_png=trend_chart_png,
                     commentary=commentary,
                 )
             st.download_button(
